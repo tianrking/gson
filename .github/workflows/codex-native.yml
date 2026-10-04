@@ -1,0 +1,44 @@
+name: Gson native evidence
+on:
+  push:
+    branches: [codex/gson-native-validation]
+permissions:
+  contents: read
+jobs:
+  red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 96342f67481416dc12669dd257cb9da65cdff913
+          persist-credentials: false
+      - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+      - name: Native baseline regression
+        shell: bash
+        run: |
+          mkdir -p evidence
+          git rev-parse HEAD > evidence/source-sha.txt
+          git show HEAD:gson/src/main/java/com/google/gson/internal/LinkedTreeMap.java | sha256sum > evidence/production-sha256.txt
+          git show HEAD:gson/src/test/java/com/google/gson/internal/LinkedTreeMapValuesTest.java | sha256sum > evidence/test-sha256.txt
+          set +e
+          mvn --batch-mode --no-transfer-progress -pl gson -am clean test -Dtest=LinkedTreeMapValuesTest -Dsurefire.failIfNoSpecifiedTests=false 2>&1 | tee evidence/red.log
+          result=${PIPESTATUS[0]}
+          set -e
+          echo "$result" > evidence/raw-exit.txt
+          cp gson/target/surefire-reports/*LinkedTreeMapValuesTest* evidence/ || true
+          test "$result" -eq 1
+          test -f gson/target/surefire-reports/TEST-com.google.gson.internal.LinkedTreeMapValuesTest.xml
+          grep -q 'tests="11"' gson/target/surefire-reports/TEST-com.google.gson.internal.LinkedTreeMapValuesTest.xml
+          grep -q 'failures="5"' gson/target/surefire-reports/TEST-com.google.gson.internal.LinkedTreeMapValuesTest.xml
+          grep -q 'errors="0"' gson/target/surefire-reports/TEST-com.google.gson.internal.LinkedTreeMapValuesTest.xml
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: gson-native-red
+          path: evidence/
+          if-no-files-found: error
