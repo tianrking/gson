@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 96342f67481416dc12669dd257cb9da65cdff913
+          ref: fcef132bef633d6153e65ef1fc3c8e030719fb83
           persist-credentials: false
       - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c
         with:
@@ -36,6 +36,12 @@ jobs:
           grep -q 'tests="11"' gson/target/surefire-reports/TEST-com.google.gson.internal.LinkedTreeMapValuesTest.xml
           grep -q 'failures="5"' gson/target/surefire-reports/TEST-com.google.gson.internal.LinkedTreeMapValuesTest.xml
           grep -q 'errors="0"' gson/target/surefire-reports/TEST-com.google.gson.internal.LinkedTreeMapValuesTest.xml
+      - name: Format focused tests using project configuration
+        run: |
+          mvn --batch-mode --no-transfer-progress -pl gson spotless:apply
+          git diff --name-only > evidence/formatted-paths.txt
+          git diff > evidence/format.diff
+          cp gson/src/test/java/com/google/gson/internal/LinkedTreeMapValuesTest.java evidence/LinkedTreeMapValuesTest.java
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
